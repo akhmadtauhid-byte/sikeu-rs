@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIKEU-RS · RSU Allam Medica</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600;6..72,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0F2A3C; --ink-soft:#3C5568; --bg:#F4F6F7; --card:#FFFFFF;
+    --teal:#0E7C86; --teal-deep:#0A5B63; --amber:#C77D22; --red:#B8433D; --green:#2E7D5B;
+    --line:#E1E6E8; --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;}
+  header{background:var(--ink);color:#fff;padding:22px 28px;display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;}
+  header h1{font-family:'Newsreader',serif;font-weight:600;font-size:1.5rem;margin:0;letter-spacing:.2px;}
+  header .sub{font-size:.82rem;color:#9FC2C8;font-family:'IBM Plex Mono',monospace;}
+  nav{display:flex;gap:4px;background:var(--card);padding:8px 20px;border-bottom:1px solid var(--line);overflow-x:auto;position:sticky;top:0;z-index:10;}
+  nav button{background:none;border:none;padding:10px 16px;font-family:'Inter';font-weight:600;font-size:.88rem;color:var(--ink-soft);cursor:pointer;border-radius:8px;white-space:nowrap;}
+  nav button.active{background:var(--teal);color:#fff;}
+  main{padding:24px;max-width:1180px;margin:0 auto;}
+  .tab{display:none;} .tab.active{display:block;animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:24px;}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;border-top:3px solid var(--teal);}
+  .kpi.warn{border-top-color:var(--amber);} .kpi.bad{border-top-color:var(--red);} .kpi.good{border-top-color:var(--green);}
+  .kpi .label{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);font-weight:600;}
+  .kpi .value{font-family:'IBM Plex Mono',monospace;font-size:1.4rem;font-weight:600;margin-top:6px;}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:20px;}
+  .card h2{font-family:'Newsreader',serif;font-size:1.15rem;margin:0 0 14px;color:var(--ink);}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  @media(max-width:760px){.grid2{grid-template-columns:1fr;}}
+
+  form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;}
+  label{font-size:.75rem;font-weight:600;color:var(--ink-soft);display:block;margin-bottom:4px;}
+  input,select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-family:'Inter';font-size:.88rem;}
+  button.submit{background:var(--teal);color:#fff;border:none;padding:10px 16px;border-radius:8px;font-weight:600;cursor:pointer;}
+  button.submit:hover{background:var(--teal-deep);}
+
+  table{width:100%;border-collapse:collapse;font-size:.85rem;}
+  th{text-align:left;font-size:.72rem;text-transform:uppercase;color:var(--ink-soft);border-bottom:2px solid var(--line);padding:8px 6px;}
+  td{padding:8px 6px;border-bottom:1px solid var(--line);}
+  tr:hover td{background:#FAFBFB;}
+  .amt{font-family:'IBM Plex Mono',monospace;text-align:right;}
+  .tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:600;}
+  .tag.outstanding{background:#FCEBD9;color:var(--amber);}
+  .tag.lunas{background:#E1F0E8;color:var(--green);}
+  .tag.overdue{background:#F6DEDC;color:var(--red);}
+
+  #aiResult{white-space:pre-wrap;line-height:1.55;font-size:.92rem;}
+  .loading{color:var(--ink-soft);font-style:italic;}
+  .status-msg{font-size:.82rem;margin-top:8px;}
+  .status-msg.ok{color:var(--green);} .status-msg.err{color:var(--red);}
+  .config-bar{background:#FFF9EE;border:1px solid #F0DFAF;border-radius:10px;padding:10px 14px;font-size:.8rem;margin-bottom:18px;color:#7A5A0E;}
+  canvas{max-height:320px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>SIKEU-RS</h1>
+  <div class="sub">Sistem Keuangan Terintegrasi — RSU Allam Medica</div>
+</header>
+
+<nav>
+  <button class="active" data-tab="dashboard">Dashboard</button>
+  <button data-tab="pendapatan">Pendapatan</button>
+  <button data-tab="pengeluaran">Pengeluaran</button>
+  <button data-tab="piutang">Piutang</button>
+  <button data-tab="analisa">Analisa AI</button>
+</nav>
+
+<main>
+
+<div class="config-bar" id="configBar">
+  ⚠️ Atur URL Web App Apps Script kamu di variabel <code>API_URL</code> pada bagian bawah file ini sebelum digunakan.
+</div>
+
+<!-- DASHBOARD -->
+<div class="tab active" id="tab-dashboard">
+  <div class="kpi-grid">
+    <div class="kpi good"><div class="label">Total Pendapatan</div><div class="value" id="kpiPendapatan">-</div></div>
+    <div class="kpi warn"><div class="label">Total OPEX</div><div class="value" id="kpiOpex">-</div></div>
+    <div class="kpi"><div class="label">Total CAPEX</div><div class="value" id="kpiCapex">-</div></div>
+    <div class="kpi" id="kpiEbitdaCard"><div class="label">EBITDA (margin)</div><div class="value" id="kpiEbitda">-</div></div>
+    <div class="kpi bad"><div class="label">Piutang Outstanding</div><div class="value" id="kpiPiutang">-</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><h2>Tren Pendapatan vs OPEX vs CAPEX per Bulan</h2><canvas id="chartTrend"></canvas></div>
+    <div class="card"><h2>Komposisi OPEX per Kategori</h2><canvas id="chartOpex"></canvas></div>
+  </div>
+  <div class="card"><h2>Komposisi Pendapatan per Kategori</h2><canvas id="chartPendapatan"></canvas></div>
+</div>
+
+<!-- PENDAPATAN -->
+<div class="tab" id="tab-pendapatan">
+  <div class="card">
+    <h2>Input Pendapatan</h2>
+    <form id="formPendapatan">
+      <div><label>Tanggal</label><input type="date" name="Tanggal" required></div>
+      <div><label>Bulan</label><select name="Bulan" required>
+        <option>Januari</option><option>Februari</option><option>Maret</option><option>April</option>
+        <option>Mei</option><option>Juni</option><option>Juli</option><option>Agustus</option>
+        <option>September</option><option>Oktober</option><option>November</option><option>Desember</option>
+      </select></div>
+      <div><label>Kategori</label><input name="Kategori" placeholder="Rawat Jalan / Rawat Inap / Klaim BPJS" required></div>
+      <div><label>Jenis Pembayar</label><select name="JenisPembayar">
+        <option>Umum</option><option>BPJS</option><option>Asuransi</option><option>Lainnya</option>
+      </select></div>
+      <div><label>Jumlah (Rp)</label><input type="number" name="Jumlah" required></div>
+      <div><label>Keterangan</label><input name="Keterangan"></div>
+      <div><button class="submit" type="submit">Simpan</button></div>
+    </form>
+    <div class="status-msg" id="msgPendapatan"></div>
+  </div>
+  <div class="card"><h2>Riwayat Pendapatan</h2><table id="tablePendapatan"><thead><tr><th>Tanggal</th><th>Bulan</th><th>Kategori</th><th>Jenis</th><th class="amt">Jumlah</th><th>Ket</th></tr></thead><tbody></tbody></table></div>
+</div>
+
+<!-- PENGELUARAN (OPEX + CAPEX) -->
+<div class="tab" id="tab-pengeluaran">
+  <div class="grid2">
+    <div class="card">
+      <h2>Input OPEX (Biaya Operasional)</h2>
+      <form id="formOpex">
+        <div><label>Tanggal</label><input type="date" name="Tanggal" required></div>
+        <div><label>Bulan</label><select name="Bulan" required>
+          <option>Januari</option><option>Februari</option><option>Maret</option><option>April</option>
+          <option>Mei</option><option>Juni</option><option>Juli</option><option>Agustus</option>
+          <option>September</option><option>Oktober</option><option>November</option><option>Desember</option>
+        </select></div>
+        <div><label>Kategori</label><select name="Kategori" required>
+          <option>Penggajian</option><option>Pembelian Obat</option><option>Belanja Dapur</option>
+          <option>Maintenance</option><option>Administrasi</option><option>Kebersihan</option>
+          <option>Transport</option><option>Pajak</option><option>Asuransi</option>
+          <option>Sewa Alat Kesehatan</option><option>Biaya Pelayanan</option><option>Lainnya</option>
+        </select></div>
+        <div><label>Sub-Kategori</label><input name="SubKategori" placeholder="opsional, mis. Gaji Perawat"></div>
+        <div><label>Jumlah (Rp)</label><input type="number" name="Jumlah" required></div>
+        <div><label>Status</label><select name="Status"><option>Realisasi</option><option>Anggaran</option></select></div>
+        <div><label>Keterangan</label><input name="Keterangan"></div>
+        <div><button class="submit" type="submit">Simpan</button></div>
+      </form>
+      <div class="status-msg" id="msgOpex"></div>
+    </div>
+
+    <div class="card">
+      <h2>Input CAPEX (Investasi / Alat Besar)</h2>
+      <form id="formCapex">
+        <div><label>Tanggal</label><input type="date" name="Tanggal" required></div>
+        <div><label>Bulan</label><select name="Bulan" required>
+          <option>Januari</option><option>Februari</option><option>Maret</option><option>April</option>
+          <option>Mei</option><option>Juni</option><option>Juli</option><option>Agustus</option>
+          <option>September</option><option>Oktober</option><option>November</option><option>Desember</option>
+        </select></div>
+        <div><label>Kategori</label><select name="Kategori" required>
+          <option>Alat Kesehatan Besar</option><option>Bangunan/Gedung</option>
+          <option>Kendaraan</option><option>IT/Sistem</option><option>Furnitur & Peralatan</option><option>Lainnya</option>
+        </select></div>
+        <div><label>Nama Aset</label><input name="NamaAset" required></div>
+        <div><label>Jumlah (Rp)</label><input type="number" name="Jumlah" required></div>
+        <div><label>Masa Manfaat (thn)</label><input type="number" name="MasaManfaatTahun"></div>
+        <div><label>Keterangan</label><input name="Keterangan"></div>
+        <div><button class="submit" type="submit">Simpan</button></div>
+      </form>
+      <div class="status-msg" id="msgCapex"></div>
+    </div>
+  </div>
+
+  <div class="card"><h2>Riwayat OPEX</h2><table id="tableOpex"><thead><tr><th>Tanggal</th><th>Kategori</th><th>Sub</th><th class="amt">Jumlah</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+  <div class="card"><h2>Riwayat CAPEX</h2><table id="tableCapex"><thead><tr><th>Tanggal</th><th>Kategori</th><th>Aset</th><th class="amt">Jumlah</th><th>Masa Manfaat</th></tr></thead><tbody></tbody></table></div>
+</div>
+
+<!-- PIUTANG -->
+<div class="tab" id="tab-piutang">
+  <div class="card">
+    <h2>Input Piutang</h2>
+    <form id="formPiutang">
+      <div><label>Tanggal</label><input type="date" name="Tanggal" required></div>
+      <div><label>Debitur</label><input name="Debitur" required></div>
+      <div><label>Jenis Piutang</label><select name="JenisPiutang">
+        <option>BPJS</option><option>Asuransi</option><option>Pasien Umum</option><option>Karyawan/Pihak Ketiga</option><option>Lainnya</option>
+      </select></div>
+      <div><label>Jumlah (Rp)</label><input type="number" name="Jumlah" required></div>
+      <div><label>Jatuh Tempo</label><input type="date" name="JatuhTempo"></div>
+      <div><label>Status</label><select name="Status"><option>Outstanding</option><option>Lunas</option></select></div>
+      <div><label>Keterangan</label><input name="Keterangan"></div>
+      <div><button class="submit" type="submit">Simpan</button></div>
+    </form>
+    <div class="status-msg" id="msgPiutang"></div>
+  </div>
+  <div class="card"><h2>Daftar Piutang</h2><table id="tablePiutang"><thead><tr><th>Tanggal</th><th>Debitur</th><th>Jenis</th><th class="amt">Jumlah</th><th>Jatuh Tempo</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+</div>
+
+<!-- ANALISA AI -->
+<div class="tab" id="tab-analisa">
+  <div class="card">
+    <h2>Kajian Penggunaan Anggaran RS (AI)</h2>
+    <p style="color:var(--ink-soft);font-size:.88rem;">AI akan menganalisa seluruh data Pendapatan, OPEX, CAPEX, dan Piutang yang tersimpan, lalu menyusun kajian dan rekomendasi manajerial.</p>
+    <label>Fokus analisa (opsional)</label>
+    <input id="focusInput" placeholder="mis. fokus ke efisiensi biaya pegawai dan risiko piutang BPJS" style="margin-bottom:12px;">
+    <br><button class="submit" onclick="runAnalysis()">Generate Analisa</button>
+    <div id="aiResult" style="margin-top:18px;"></div>
+  </div>
+</div>
+
+</main>
+
+<script>
+// ====== GANTI dengan URL Web App Apps Script kamu ======
+const API_URL = "https://script.google.com/macros/s/AKfycbzGdVHDoD0KBzMegli-Bpf0sAcwLPlFpBAEZAMMxhPySjhbK6wm6N1XgfL002AuKKjUJw/exec";
+
+if (API_URL.startsWith("PASTE_")) {
+  document.getElementById('configBar').style.display = 'block';
+} else {
+  document.getElementById('configBar').style.display = 'none';
+}
+
+function fmt(n){ return 'Rp ' + (Number(n)||0).toLocaleString('id-ID'); }
+
+// ---- Tab navigation ----
+document.querySelectorAll('nav button').forEach(btn=>{
+  btn.onclick = () => {
+    document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  };
+});
+
+// ---- API helpers ----
+async function apiGet(action){
+  const res = await fetch(API_URL + '?action=' + action);
+  return res.json();
+}
+async function apiPost(action, data){
+  const res = await fetch(API_URL, {
+    method:'POST',
+    body: JSON.stringify({action, data})
+  });
+  return res.json();
+}
+
+// ---- Load dashboard ----
+let charts = {};
+async function loadDashboard(){
+  const r = await apiGet('summary');
+  if(!r.ok){ return; }
+  const s = r.data;
+  document.getElementById('kpiPendapatan').textContent = fmt(s.totalPendapatan);
+  document.getElementById('kpiOpex').textContent = fmt(s.totalOpex);
+  document.getElementById('kpiCapex').textContent = fmt(s.totalCapex);
+  document.getElementById('kpiEbitda').textContent = fmt(s.ebitda) + ' (' + s.marginEbitda.toFixed(1) + '%)';
+  document.getElementById('kpiEbitdaCard').className = 'kpi ' + (s.marginEbitda >= 10 ? 'good' : s.marginEbitda >= 0 ? 'warn' : 'bad');
+  document.getElementById('kpiPiutang').textContent = fmt(s.totalPiutangOutstanding);
+
+  const months = Object.keys(s.byMonth);
+  const drawLine = (ctx, labels, datasets) => new Chart(ctx, {type:'line', data:{labels, datasets}, options:{responsive:true, plugins:{legend:{position:'bottom'}}}});
+  const drawDoughnut = (ctx, labels, values) => new Chart(ctx, {type:'doughnut', data:{labels, datasets:[{data:values, backgroundColor:['#0E7C86','#C77D22','#B8433D','#2E7D5B','#3C5568','#9FC2C8','#7A5A0E','#0A5B63']}]}, options:{responsive:true, plugins:{legend:{position:'right'}}}});
+
+  if(charts.trend) charts.trend.destroy();
+  charts.trend = drawLine(document.getElementById('chartTrend'), months, [
+    {label:'Pendapatan', data: months.map(m=>s.byMonth[m].pendapatan), borderColor:'#2E7D5B', backgroundColor:'#2E7D5B22', tension:.3},
+    {label:'OPEX', data: months.map(m=>s.byMonth[m].opex), borderColor:'#C77D22', backgroundColor:'#C77D2222', tension:.3},
+    {label:'CAPEX', data: months.map(m=>s.byMonth[m].capex), borderColor:'#B8433D', backgroundColor:'#B8433D22', tension:.3}
+  ]);
+  if(charts.opex) charts.opex.destroy();
+  charts.opex = drawDoughnut(document.getElementById('chartOpex'), Object.keys(s.opexByKategori), Object.values(s.opexByKategori));
+  if(charts.pend) charts.pend.destroy();
+  charts.pend = drawDoughnut(document.getElementById('chartPendapatan'), Object.keys(s.pendapatanByKategori), Object.values(s.pendapatanByKategori));
+}
+
+// ---- Load tables ----
+async function loadPendapatan(){
+  const r = await apiGet('pendapatan'); if(!r.ok) return;
+  document.querySelector('#tablePendapatan tbody').innerHTML = r.data.map(d=>
+    `<tr><td>${d.Tanggal}</td><td>${d.Bulan}</td><td>${d.Kategori}</td><td>${d.JenisPembayar||''}</td><td class="amt">${fmt(d.Jumlah)}</td><td>${d.Keterangan||''}</td></tr>`
+  ).join('');
+}
+async function loadOpex(){
+  const r = await apiGet('opex'); if(!r.ok) return;
+  document.querySelector('#tableOpex tbody').innerHTML = r.data.map(d=>
+    `<tr><td>${d.Tanggal}</td><td>${d.Kategori}</td><td>${d.SubKategori||''}</td><td class="amt">${fmt(d.Jumlah)}</td><td>${d.Status||''}</td></tr>`
+  ).join('');
+}
+async function loadCapex(){
+  const r = await apiGet('capex'); if(!r.ok) return;
+  document.querySelector('#tableCapex tbody').innerHTML = r.data.map(d=>
+    `<tr><td>${d.Tanggal}</td><td>${d.Kategori}</td><td>${d.NamaAset}</td><td class="amt">${fmt(d.Jumlah)}</td><td>${d.MasaManfaatTahun||''} thn</td></tr>`
+  ).join('');
+}
+async function loadPiutang(){
+  const r = await apiGet('piutang'); if(!r.ok) return;
+  const today = new Date();
+  document.querySelector('#tablePiutang tbody').innerHTML = r.data.map(d=>{
+    let tag = 'lunas', label='Lunas';
+    if((d.Status||'').toLowerCase() !== 'lunas'){
+      const overdue = d.JatuhTempo && new Date(d.JatuhTempo) < today;
+      tag = overdue ? 'overdue' : 'outstanding';
+      label = overdue ? 'Jatuh Tempo' : 'Outstanding';
+    }
+    return `<tr><td>${d.Tanggal}</td><td>${d.Debitur}</td><td>${d.JenisPiutang||''}</td><td class="amt">${fmt(d.Jumlah)}</td><td>${d.JatuhTempo||'-'}</td><td><span class="tag ${tag}">${label}</span></td></tr>`;
+  }).join('');
+}
+
+// ---- Form submit handlers ----
+function bindForm(formId, action, msgId, reload){
+  document.getElementById(formId).addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const data = Object.fromEntries(fd.entries());
+    const msg = document.getElementById(msgId);
+    msg.textContent = 'Menyimpan...'; msg.className='status-msg';
+    const r = await apiPost(action, data);
+    if(r.ok){ msg.textContent='Tersimpan.'; msg.className='status-msg ok'; e.target.reset(); reload(); loadDashboard(); }
+    else { msg.textContent='Gagal: '+r.error; msg.className='status-msg err'; }
+  });
+}
+bindForm('formPendapatan','addPendapatan','msgPendapatan',loadPendapatan);
+bindForm('formOpex','addOpex','msgOpex',loadOpex);
+bindForm('formCapex','addCapex','msgCapex',loadCapex);
+bindForm('formPiutang','addPiutang','msgPiutang',loadPiutang);
+
+// ---- AI Analysis ----
+async function runAnalysis(){
+  const el = document.getElementById('aiResult');
+  el.innerHTML = '<div class="loading">Menganalisa data keuangan… (bisa 10-20 detik)</div>';
+  const focus = document.getElementById('focusInput').value;
+  const r = await apiPost('analyze', {focus});
+  if(r.ok){ el.textContent = r.analysis; }
+  else { el.innerHTML = '<span style="color:var(--red)">Gagal: '+r.error+'</span>'; }
+}
+
+// ---- Init ----
+if(!API_URL.startsWith("PASTE_")){
+  loadDashboard(); loadPendapatan(); loadOpex(); loadCapex(); loadPiutang();
+}
+</script>
+</body>
+</html>
