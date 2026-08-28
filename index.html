@@ -58,6 +58,35 @@
   .status-msg.ok{color:var(--green);} .status-msg.err{color:var(--red);}
   .config-bar{background:#FFF9EE;border:1px solid #F0DFAF;border-radius:10px;padding:10px 14px;font-size:.8rem;margin-bottom:18px;color:#7A5A0E;}
   canvas{max-height:320px;}
+
+  .btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--line);padding:8px 14px;border-radius:8px;font-weight:600;font-size:.82rem;cursor:pointer;}
+  .btn-ghost:hover{border-color:var(--teal);color:var(--teal);}
+  .card-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+  .card-head h2{margin:0;}
+
+  .kat-row{display:flex;gap:6px;align-items:flex-end;}
+  .kat-row select{flex:1;}
+  .kat-add{width:38px;flex:none;background:var(--card);border:1px solid var(--line);border-radius:8px;font-weight:700;color:var(--teal);cursor:pointer;font-size:1rem;}
+  .kat-add:hover{background:var(--teal);color:#fff;}
+
+  .dropzone{border:2px dashed var(--line);border-radius:12px;padding:26px;text-align:center;color:var(--ink-soft);cursor:pointer;transition:border-color .15s;}
+  .dropzone:hover, .dropzone.drag{border-color:var(--teal);color:var(--teal);}
+  .dropzone input{display:none;}
+  .file-chip{display:inline-flex;align-items:center;gap:8px;background:#EEF7F7;border:1px solid var(--teal);border-radius:20px;padding:6px 14px;font-size:.85rem;margin-top:10px;}
+
+  .doc-table select, .doc-table input{padding:6px 8px;font-size:.82rem;}
+  .doc-table td{vertical-align:middle;}
+  .checkbox-cell{text-align:center;width:36px;}
+  .checkbox-cell input{width:18px;height:18px;}
+
+  @media print{
+    nav, .config-bar, form, .kat-add, .no-print, #uploadControls, .card-head .btn-ghost { display:none !important; }
+    body{background:#fff;}
+    main{padding:0;max-width:100%;}
+    .card{border:1px solid #ccc;box-shadow:none;break-inside:avoid;}
+    header{background:#fff !important;color:#000 !important;border-bottom:2px solid #000;}
+    header .sub{color:#333 !important;}
+  }
 </style>
 </head>
 <body>
@@ -72,6 +101,7 @@
   <button data-tab="pendapatan">Pendapatan</button>
   <button data-tab="pengeluaran">Pengeluaran</button>
   <button data-tab="piutang">Piutang</button>
+  <button data-tab="upload">Upload Dokumen</button>
   <button data-tab="analisa">Analisa AI</button>
 </nav>
 
@@ -83,6 +113,10 @@
 
 <!-- DASHBOARD -->
 <div class="tab active" id="tab-dashboard">
+  <div class="card-head">
+    <h2 style="font-family:'Newsreader',serif;">Ringkasan</h2>
+    <button class="btn-ghost" onclick="window.print()">🖨️ Cetak Laporan</button>
+  </div>
   <div class="kpi-grid">
     <div class="kpi good"><div class="label">Total Pendapatan</div><div class="value" id="kpiPendapatan">-</div></div>
     <div class="kpi warn"><div class="label">Total OPEX</div><div class="value" id="kpiOpex">-</div></div>
@@ -109,7 +143,10 @@
         <option>Mei</option><option>Juni</option><option>Juli</option><option>Agustus</option>
         <option>September</option><option>Oktober</option><option>November</option><option>Desember</option>
       </select></div>
-      <div><label>Kategori</label><input name="Kategori" placeholder="Rawat Jalan / Rawat Inap / Klaim BPJS" required></div>
+      <div><label>Kategori</label><div class="kat-row">
+        <select name="Kategori" id="selKategoriPendapatan" required></select>
+        <button type="button" class="kat-add" title="Tambah kategori baru" onclick="addKategoriPrompt('PENDAPATAN','selKategoriPendapatan')">+</button>
+      </div></div>
       <div><label>Jenis Pembayar</label><select name="JenisPembayar">
         <option>Umum</option><option>BPJS</option><option>Asuransi</option><option>Lainnya</option>
       </select></div>
@@ -119,7 +156,10 @@
     </form>
     <div class="status-msg" id="msgPendapatan"></div>
   </div>
-  <div class="card"><h2>Riwayat Pendapatan</h2><table id="tablePendapatan"><thead><tr><th>Tanggal</th><th>Bulan</th><th>Kategori</th><th>Jenis</th><th class="amt">Jumlah</th><th>Ket</th></tr></thead><tbody></tbody></table></div>
+  <div class="card">
+    <div class="card-head"><h2>Riwayat Pendapatan</h2><button class="btn-ghost" onclick="window.print()">🖨️ Cetak</button></div>
+    <table id="tablePendapatan"><thead><tr><th>Tanggal</th><th>Bulan</th><th>Kategori</th><th>Jenis</th><th class="amt">Jumlah</th><th>Ket</th></tr></thead><tbody></tbody></table>
+  </div>
 </div>
 
 <!-- PENGELUARAN (OPEX + CAPEX) -->
@@ -134,12 +174,10 @@
           <option>Mei</option><option>Juni</option><option>Juli</option><option>Agustus</option>
           <option>September</option><option>Oktober</option><option>November</option><option>Desember</option>
         </select></div>
-        <div><label>Kategori</label><select name="Kategori" required>
-          <option>Penggajian</option><option>Pembelian Obat</option><option>Belanja Dapur</option>
-          <option>Maintenance</option><option>Administrasi</option><option>Kebersihan</option>
-          <option>Transport</option><option>Pajak</option><option>Asuransi</option>
-          <option>Sewa Alat Kesehatan</option><option>Biaya Pelayanan</option><option>Lainnya</option>
-        </select></div>
+        <div><label>Kategori</label><div class="kat-row">
+          <select name="Kategori" id="selKategoriOpex" required></select>
+          <button type="button" class="kat-add" title="Tambah kategori baru" onclick="addKategoriPrompt('OPEX','selKategoriOpex')">+</button>
+        </div></div>
         <div><label>Sub-Kategori</label><input name="SubKategori" placeholder="opsional, mis. Gaji Perawat"></div>
         <div><label>Jumlah (Rp)</label><input type="number" name="Jumlah" required></div>
         <div><label>Status</label><select name="Status"><option>Realisasi</option><option>Anggaran</option></select></div>
@@ -158,10 +196,10 @@
           <option>Mei</option><option>Juni</option><option>Juli</option><option>Agustus</option>
           <option>September</option><option>Oktober</option><option>November</option><option>Desember</option>
         </select></div>
-        <div><label>Kategori</label><select name="Kategori" required>
-          <option>Alat Kesehatan Besar</option><option>Bangunan/Gedung</option>
-          <option>Kendaraan</option><option>IT/Sistem</option><option>Furnitur & Peralatan</option><option>Lainnya</option>
-        </select></div>
+        <div><label>Kategori</label><div class="kat-row">
+          <select name="Kategori" id="selKategoriCapex" required></select>
+          <button type="button" class="kat-add" title="Tambah kategori baru" onclick="addKategoriPrompt('CAPEX','selKategoriCapex')">+</button>
+        </div></div>
         <div><label>Nama Aset</label><input name="NamaAset" required></div>
         <div><label>Jumlah (Rp)</label><input type="number" name="Jumlah" required></div>
         <div><label>Masa Manfaat (thn)</label><input type="number" name="MasaManfaatTahun"></div>
@@ -172,8 +210,14 @@
     </div>
   </div>
 
-  <div class="card"><h2>Riwayat OPEX</h2><table id="tableOpex"><thead><tr><th>Tanggal</th><th>Kategori</th><th>Sub</th><th class="amt">Jumlah</th><th>Status</th></tr></thead><tbody></tbody></table></div>
-  <div class="card"><h2>Riwayat CAPEX</h2><table id="tableCapex"><thead><tr><th>Tanggal</th><th>Kategori</th><th>Aset</th><th class="amt">Jumlah</th><th>Masa Manfaat</th></tr></thead><tbody></tbody></table></div>
+  <div class="card">
+    <div class="card-head"><h2>Riwayat OPEX</h2><button class="btn-ghost" onclick="window.print()">🖨️ Cetak</button></div>
+    <table id="tableOpex"><thead><tr><th>Tanggal</th><th>Kategori</th><th>Sub</th><th class="amt">Jumlah</th><th>Status</th></tr></thead><tbody></tbody></table>
+  </div>
+  <div class="card">
+    <div class="card-head"><h2>Riwayat CAPEX</h2><button class="btn-ghost" onclick="window.print()">🖨️ Cetak</button></div>
+    <table id="tableCapex"><thead><tr><th>Tanggal</th><th>Kategori</th><th>Aset</th><th class="amt">Jumlah</th><th>Masa Manfaat</th></tr></thead><tbody></tbody></table>
+  </div>
 </div>
 
 <!-- PIUTANG -->
@@ -183,9 +227,10 @@
     <form id="formPiutang">
       <div><label>Tanggal</label><input type="date" name="Tanggal" required></div>
       <div><label>Debitur</label><input name="Debitur" required></div>
-      <div><label>Jenis Piutang</label><select name="JenisPiutang">
-        <option>BPJS</option><option>Asuransi</option><option>Pasien Umum</option><option>Karyawan/Pihak Ketiga</option><option>Lainnya</option>
-      </select></div>
+      <div><label>Jenis Piutang</label><div class="kat-row">
+        <select name="JenisPiutang" id="selKategoriPiutang"></select>
+        <button type="button" class="kat-add" title="Tambah kategori baru" onclick="addKategoriPrompt('PIUTANG','selKategoriPiutang')">+</button>
+      </div></div>
       <div><label>Jumlah (Rp)</label><input type="number" name="Jumlah" required></div>
       <div><label>Jatuh Tempo</label><input type="date" name="JatuhTempo"></div>
       <div><label>Status</label><select name="Status"><option>Outstanding</option><option>Lunas</option></select></div>
@@ -194,7 +239,42 @@
     </form>
     <div class="status-msg" id="msgPiutang"></div>
   </div>
-  <div class="card"><h2>Daftar Piutang</h2><table id="tablePiutang"><thead><tr><th>Tanggal</th><th>Debitur</th><th>Jenis</th><th class="amt">Jumlah</th><th>Jatuh Tempo</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+  <div class="card">
+    <div class="card-head"><h2>Daftar Piutang</h2><button class="btn-ghost" onclick="window.print()">🖨️ Cetak</button></div>
+    <table id="tablePiutang"><thead><tr><th>Tanggal</th><th>Debitur</th><th>Jenis</th><th class="amt">Jumlah</th><th>Jatuh Tempo</th><th>Status</th></tr></thead><tbody></tbody></table>
+  </div>
+</div>
+
+<!-- UPLOAD DOKUMEN -->
+<div class="tab" id="tab-upload">
+  <div class="card" id="uploadControls">
+    <h2>Upload & Analisa Dokumen dengan AI</h2>
+    <p style="color:var(--ink-soft);font-size:.88rem;">Unggah Excel (.xlsx), PDF, atau foto nota/kuitansi/invoice. AI akan membaca dan mengusulkan baris data — kamu tetap yang memutuskan mana yang masuk ke sistem.</p>
+
+    <label class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.pdf,image/*">
+      <div id="dropzoneText">📄 Klik atau tarik file ke sini (Excel / PDF / Foto)</div>
+      <div id="fileChipHolder"></div>
+    </label>
+
+    <div style="margin-top:14px;">
+      <label>Konteks tambahan (opsional)</label>
+      <input id="docHint" placeholder="mis. ini nota belanja dapur bulan Agustus">
+    </div>
+    <button class="submit" style="margin-top:12px;" onclick="analyzeUploadedDocument()">🤖 Analisa dengan AI</button>
+    <div class="status-msg" id="msgUpload"></div>
+  </div>
+
+  <div class="card" id="docResultCard" style="display:none;">
+    <h2>Hasil Bacaan AI</h2>
+    <p id="docRingkasan" style="color:var(--ink-soft);"></p>
+    <table class="doc-table" id="tableDocItems">
+      <thead><tr><th class="checkbox-cell">✓</th><th>Modul</th><th>Tanggal</th><th>Kategori</th><th>Keterangan</th><th>Jumlah (Rp)</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <button class="submit" style="margin-top:14px;" onclick="commitDocItems()">Tambahkan yang Dicentang ke Sistem</button>
+    <div class="status-msg" id="msgCommitDoc"></div>
+  </div>
 </div>
 
 <!-- ANALISA AI -->
@@ -205,6 +285,7 @@
     <label>Fokus analisa (opsional)</label>
     <input id="focusInput" placeholder="mis. fokus ke efisiensi biaya pegawai dan risiko piutang BPJS" style="margin-bottom:12px;">
     <br><button class="submit" onclick="runAnalysis()">Generate Analisa</button>
+    <button class="btn-ghost" style="margin-left:8px;" onclick="window.print()">🖨️ Cetak Hasil</button>
     <div id="aiResult" style="margin-top:18px;"></div>
   </div>
 </div>
@@ -213,7 +294,7 @@
 
 <script>
 // ====== GANTI dengan URL Web App Apps Script kamu ======
-const API_URL = "https://script.google.com/macros/s/AKfycbzGdVHDoD0KBzMegli-Bpf0sAcwLPlFpBAEZAMMxhPySjhbK6wm6N1XgfL002AuKKjUJw/exec";
+const API_URL = "PASTE_URL_DEPLOYMENT_APPS_SCRIPT_DI_SINI";
 
 if (API_URL.startsWith("PASTE_")) {
   document.getElementById('configBar').style.display = 'block';
@@ -326,6 +407,163 @@ bindForm('formOpex','addOpex','msgOpex',loadOpex);
 bindForm('formCapex','addCapex','msgCapex',loadCapex);
 bindForm('formPiutang','addPiutang','msgPiutang',loadPiutang);
 
+// ---- Kategori dinamis ----
+let kategoriMap = { PENDAPATAN: [], OPEX: [], CAPEX: [], PIUTANG: [] };
+
+async function loadKategori(){
+  const r = await apiGet('kategori');
+  if(!r.ok) return;
+  kategoriMap = { PENDAPATAN: [], OPEX: [], CAPEX: [], PIUTANG: [] };
+  r.data.forEach(row=>{
+    const modul = (row.Modul||'').toUpperCase();
+    if(kategoriMap[modul]) kategoriMap[modul].push(row.Kategori);
+  });
+  fillKategoriSelect('selKategoriPendapatan', kategoriMap.PENDAPATAN);
+  fillKategoriSelect('selKategoriOpex', kategoriMap.OPEX);
+  fillKategoriSelect('selKategoriCapex', kategoriMap.CAPEX);
+  fillKategoriSelect('selKategoriPiutang', kategoriMap.PIUTANG);
+}
+function fillKategoriSelect(selectId, list, selected){
+  const el = document.getElementById(selectId);
+  if(!el) return;
+  const current = selected || el.value;
+  el.innerHTML = list.map(k=>`<option value="${k}">${k}</option>`).join('');
+  if(current && list.includes(current)) el.value = current;
+}
+async function addKategoriPrompt(modul, selectId){
+  const val = prompt('Nama kategori baru untuk ' + modul + ':');
+  if(!val || !val.trim()) return;
+  const r = await apiPost('addKategori', { Modul: modul, Kategori: val.trim() });
+  if(r.ok){
+    await loadKategori();
+    fillKategoriSelect(selectId, kategoriMap[modul], val.trim());
+  } else {
+    alert('Gagal menambah kategori: ' + (r.error||''));
+  }
+}
+
+// ---- Upload & Analisa Dokumen ----
+let uploadedFile = null;
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+if (dropzone) {
+  dropzone.addEventListener('click', ()=> fileInput.click());
+  fileInput.addEventListener('change', e => handleFileSelect(e.target.files[0]));
+  ['dragover','dragenter'].forEach(ev => dropzone.addEventListener(ev, e=>{ e.preventDefault(); dropzone.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(ev => dropzone.addEventListener(ev, e=>{ e.preventDefault(); dropzone.classList.remove('drag'); }));
+  dropzone.addEventListener('drop', e=>{ if(e.dataTransfer.files[0]) handleFileSelect(e.dataTransfer.files[0]); });
+}
+function handleFileSelect(file){
+  if(!file) return;
+  uploadedFile = file;
+  document.getElementById('fileChipHolder').innerHTML = `<div class="file-chip">📎 ${file.name}</div>`;
+}
+function fileToBase64(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+let lastDocItems = [];
+async function analyzeUploadedDocument(){
+  const msg = document.getElementById('msgUpload');
+  if(!uploadedFile){ msg.textContent = 'Pilih file dulu.'; msg.className='status-msg err'; return; }
+  msg.textContent = 'Membaca & menganalisa dokumen… (bisa 15-30 detik)'; msg.className='status-msg';
+  document.getElementById('docResultCard').style.display = 'none';
+
+  try{
+    const base64 = await fileToBase64(uploadedFile);
+    const hint = document.getElementById('docHint').value;
+    const r = await apiPost('analyzeDocument', {
+      fileBase64: base64, mimeType: uploadedFile.type || 'application/octet-stream',
+      fileName: uploadedFile.name, hint
+    });
+    if(!r.ok){ msg.textContent = 'Gagal: ' + r.error; msg.className='status-msg err'; return; }
+    msg.textContent = 'Selesai. Cek hasil di bawah sebelum ditambahkan ke sistem.'; msg.className='status-msg ok';
+    lastDocItems = r.items || [];
+    document.getElementById('docRingkasan').textContent = r.ringkasan || '';
+    renderDocItems(lastDocItems);
+    document.getElementById('docResultCard').style.display = 'block';
+  } catch(err){
+    msg.textContent = 'Gagal memproses file: ' + err.message; msg.className='status-msg err';
+  }
+}
+
+function renderDocItems(items){
+  const modulOptions = ['PENDAPATAN','OPEX','CAPEX','PIUTANG'];
+  const tbody = document.querySelector('#tableDocItems tbody');
+  tbody.innerHTML = items.map((it, i) => {
+    const modul = modulOptions.includes((it.modul||'').toUpperCase()) ? it.modul.toUpperCase() : 'OPEX';
+    const katOptions = (kategoriMap[modul]||[]).map(k=>`<option value="${k}" ${k===it.kategori?'selected':''}>${k}</option>`).join('')
+      || `<option value="${it.kategori||'Lainnya'}">${it.kategori||'Lainnya'}</option>`;
+    return `<tr data-idx="${i}">
+      <td class="checkbox-cell"><input type="checkbox" checked></td>
+      <td><select class="doc-modul" onchange="refreshDocRowKategori(this)">
+        ${modulOptions.map(m=>`<option value="${m}" ${m===modul?'selected':''}>${m}</option>`).join('')}
+      </select></td>
+      <td><input type="date" class="doc-tanggal" value="${it.tanggal||''}"></td>
+      <td><select class="doc-kategori">${katOptions}</select></td>
+      <td><input type="text" class="doc-keterangan" value="${(it.keterangan||'').replace(/"/g,'&quot;')}"></td>
+      <td><input type="number" class="doc-jumlah" value="${Number(it.jumlah)||0}"></td>
+    </tr>`;
+  }).join('');
+}
+function refreshDocRowKategori(selectEl){
+  const modul = selectEl.value;
+  const tr = selectEl.closest('tr');
+  const katSelect = tr.querySelector('.doc-kategori');
+  const list = kategoriMap[modul] || [];
+  katSelect.innerHTML = list.map(k=>`<option value="${k}">${k}</option>`).join('') || `<option value="Lainnya">Lainnya</option>`;
+}
+
+async function commitDocItems(){
+  const msg = document.getElementById('msgCommitDoc');
+  const rows = document.querySelectorAll('#tableDocItems tbody tr');
+  let added = 0, failed = 0;
+  msg.textContent = 'Menyimpan...'; msg.className = 'status-msg';
+
+  for(const tr of rows){
+    if(!tr.querySelector('input[type=checkbox]').checked) continue;
+    const modul = tr.querySelector('.doc-modul').value;
+    const tanggal = tr.querySelector('.doc-tanggal').value;
+    const kategori = tr.querySelector('.doc-kategori').value;
+    const keterangan = tr.querySelector('.doc-keterangan').value;
+    const jumlah = Number(tr.querySelector('.doc-jumlah').value) || 0;
+    const bulan = tanggalToBulan(tanggal);
+
+    let action, data;
+    if(modul === 'PENDAPATAN'){
+      action = 'addPendapatan';
+      data = { Tanggal: tanggal, Bulan: bulan, Kategori: kategori, JenisPembayar: 'Lainnya', Jumlah: jumlah, Keterangan: keterangan + ' (upload AI)' };
+    } else if(modul === 'OPEX'){
+      action = 'addOpex';
+      data = { Tanggal: tanggal, Bulan: bulan, Kategori: kategori, SubKategori: keterangan, Jumlah: jumlah, Status: 'Realisasi', Keterangan: 'Upload AI' };
+    } else if(modul === 'CAPEX'){
+      action = 'addCapex';
+      data = { Tanggal: tanggal, Bulan: bulan, Kategori: kategori, NamaAset: keterangan, Jumlah: jumlah, MasaManfaatTahun: '', Keterangan: 'Upload AI' };
+    } else {
+      action = 'addPiutang';
+      data = { Tanggal: tanggal, Debitur: keterangan, JenisPiutang: kategori, Jumlah: jumlah, JatuhTempo: '', Status: 'Outstanding', Keterangan: 'Upload AI' };
+    }
+
+    const r = await apiPost(action, data);
+    if(r.ok) added++; else failed++;
+  }
+
+  msg.textContent = `${added} baris ditambahkan ke sistem.` + (failed ? ` ${failed} gagal.` : '');
+  msg.className = failed ? 'status-msg err' : 'status-msg ok';
+  loadDashboard(); loadPendapatan(); loadOpex(); loadCapex(); loadPiutang();
+}
+function tanggalToBulan(tgl){
+  const names = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+  if(!tgl) return names[0];
+  const d = new Date(tgl);
+  return isNaN(d) ? names[0] : names[d.getMonth()];
+}
+
 // ---- AI Analysis ----
 async function runAnalysis(){
   const el = document.getElementById('aiResult');
@@ -338,7 +576,9 @@ async function runAnalysis(){
 
 // ---- Init ----
 if(!API_URL.startsWith("PASTE_")){
-  loadDashboard(); loadPendapatan(); loadOpex(); loadCapex(); loadPiutang();
+  loadKategori().then(()=>{
+    loadDashboard(); loadPendapatan(); loadOpex(); loadCapex(); loadPiutang();
+  });
 }
 </script>
 </body>
